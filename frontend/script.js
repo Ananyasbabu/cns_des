@@ -1,8 +1,8 @@
 /**
  * Dynamic DES Visualizer — Interactive Frontend Engine
  *
- * Implements full 16-round DES step-by-step playback, S-box coordinate highlighting,
- * dynamic key changing inspection, and college presentation mode.
+ * Implements pure plain text encryption, 16-round Feistel step-by-step playback,
+ * S-box coordinate highlighting, dynamic key changing inspection, and verified plain text decryption.
  */
 
 // Global State
@@ -14,32 +14,33 @@ const state = {
   isPlaying: false,
   playTimer: null,
   playSpeedMs: 1500,
-  presentationMode: false,
   selectedRound: 1,
   selectedSBox: 0,
-  activeTab: 'tab-dashboard'
+  activeTab: 'tab-dashboard',
+  currentPlaintextInput: 'HELLO WORLD',
+  currentKeyInput: 'SECURITY'
 };
 
 // Step Meta Information for Step-by-Step Navigation
 const STEP_DEFS = [
-  { num: 1, title: "Plaintext Conversion to 64-bit Binary", tab: "tab-input" },
-  { num: 2, title: "Key Parity Inspection & PC-1 Permutation", tab: "tab-input" },
-  { num: 3, title: "56-bit Effective Key & C0/D0 Split", tab: "tab-input" },
-  { num: 4, title: "16-Round Subkey Schedule (Shifts & PC-2)", tab: "tab-keys" },
+  { num: 1, title: "Plaintext to 64-bit Binary (8 Characters / Bytes)", tab: "tab-input" },
+  { num: 2, title: "Key Parity Inspection & PC-1 Permutation (64b → 56b)", tab: "tab-input" },
+  { num: 3, title: "56-bit Key & C0/D0 Split (28 bits each)", tab: "tab-input" },
+  { num: 4, title: "16-Round Subkey Schedule (Shifts & PC-2 → 48 bits)", tab: "tab-keys" },
   { num: 5, title: "Initial Permutation (IP) & L0/R0 Formation", tab: "tab-encryption" },
   { num: 6, title: "Feistel Function F: Expansion E & XOR with Ki", tab: "tab-rounds" },
-  { num: 7, title: "S-Box Substitution (48 bits → 32 bits)", tab: "tab-rounds" },
-  { num: 8, title: "P-Box Straight Permutation (Diffusion)", tab: "tab-rounds" },
+  { num: 7, title: "8 S-Boxes Substitution (Confusion: 48b → 32b)", tab: "tab-rounds" },
+  { num: 8, title: "Straight P-Box Permutation (Diffusion: 32b → 32b)", tab: "tab-rounds" },
   { num: 9, title: "16 Feistel Rounds Progression", tab: "tab-encryption" },
   { num: 10, title: "Preoutput 32-bit Swap (R16 || L16)", tab: "tab-encryption" },
-  { num: 11, title: "Inverse Initial Permutation (IP⁻¹) → Ciphertext", tab: "tab-encryption" }
+  { num: 11, title: "Inverse Initial Permutation (IP⁻¹) → Final Ciphertext", tab: "tab-encryption" }
 ];
 
 // Document Ready Initialization
 document.addEventListener("DOMContentLoaded", async () => {
   setupEventListeners();
   await loadTables();
-  await loadTestVector();
+  await executeEncryption(); // Auto-run initial plain text encryption
 });
 
 // Setup All DOM Event Listeners
@@ -53,9 +54,6 @@ function setupEventListeners() {
 
   // Theme toggle
   document.getElementById("btn-toggle-theme").addEventListener("click", toggleTheme);
-
-  // Presentation mode toggle
-  document.getElementById("btn-toggle-presentation").addEventListener("click", togglePresentationMode);
 
   // Playback controller buttons
   document.getElementById("btn-step-first").addEventListener("click", () => goToStep(1));
@@ -82,6 +80,14 @@ function setupEventListeners() {
   document.getElementById("btn-load-test-vector").addEventListener("click", loadTestVector);
   document.getElementById("btn-run-encryption").addEventListener("click", executeEncryption);
 
+  // Enter key in plaintext or key input triggers encryption
+  document.getElementById("quick-pt-input").addEventListener("keyup", (e) => {
+    if (e.key === "Enter") executeEncryption();
+  });
+  document.getElementById("quick-key-input").addEventListener("keyup", (e) => {
+    if (e.key === "Enter") executeEncryption();
+  });
+
   // Custom S-Box Enter key listener
   document.getElementById("sbox-custom-input").addEventListener("keyup", (e) => {
     if (e.key === "Enter") calculateCustomSBox();
@@ -97,7 +103,6 @@ function switchTab(tabId) {
   document.querySelectorAll(".tab-pane").forEach(pane => {
     pane.classList.toggle("active", pane.id === tabId);
   });
-  // Auto-scroll to top of main content
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -108,23 +113,6 @@ function toggleTheme() {
   const newTheme = currentTheme === "dark" ? "light" : "dark";
   html.setAttribute("data-theme", newTheme);
   document.getElementById("theme-icon").textContent = newTheme === "dark" ? "🌙" : "☀️";
-}
-
-// Presentation Mode Toggle
-function togglePresentationMode() {
-  state.presentationMode = !state.presentationMode;
-  const banner = document.getElementById("presentation-banner");
-  const statusText = document.getElementById("pres-status-text");
-  
-  if (state.presentationMode) {
-    banner.classList.remove("hidden");
-    statusText.textContent = "Presentation Mode: ON";
-    document.querySelectorAll(".pres-box").forEach(el => el.classList.remove("hidden"));
-  } else {
-    banner.classList.add("hidden");
-    statusText.textContent = "Presentation Mode: OFF";
-    document.querySelectorAll(".pres-box").forEach(el => el.classList.add("hidden"));
-  }
 }
 
 // Step-by-Step Playback Controls
@@ -189,32 +177,37 @@ async function loadTables() {
   }
 }
 
-// Load Official Test Vector
+// Load Standard NIST Test Vector
 async function loadTestVector() {
   try {
     const res = await fetch("/api/test-vector");
     const data = await res.json();
     
-    document.querySelector("input[name='input_mode'][value='hex']").checked = true;
     document.getElementById("quick-pt-input").value = data.plaintext_hex;
     document.getElementById("quick-key-input").value = data.key_hex;
     
+    state.currentPlaintextInput = data.plaintext_hex;
+    state.currentKeyInput = data.key_hex;
+
     applyTraceData(data.trace);
+    switchTab("tab-encryption");
   } catch (err) {
     console.error("Failed to load test vector:", err);
   }
 }
 
-// Execute Encryption via API
+// Execute Encryption via API (Plain Text Native)
 async function executeEncryption() {
-  const inputMode = document.querySelector("input[name='input_mode']:checked").value;
   const ptVal = document.getElementById("quick-pt-input").value.trim();
   const keyVal = document.getElementById("quick-key-input").value.trim();
 
   if (!ptVal || !keyVal) {
-    alert("Please enter both Plaintext and Key!");
+    alert("Please enter both Plain Text Message and Secret Key!");
     return;
   }
+
+  state.currentPlaintextInput = ptVal;
+  state.currentKeyInput = keyVal;
 
   try {
     const res = await fetch("/api/des/encrypt", {
@@ -223,7 +216,7 @@ async function executeEncryption() {
       body: JSON.stringify({
         plaintext: ptVal,
         key: keyVal,
-        input_type: inputMode
+        input_type: "ascii"
       })
     });
 
@@ -245,15 +238,15 @@ function applyTraceData(trace) {
   state.currentTrace = trace;
 
   // 1. Plaintext Tab
-  document.getElementById("pt-raw-display").textContent = trace.raw_plaintext;
-  document.getElementById("pt-hex-display").textContent = trace.plaintext;
+  document.getElementById("pt-raw-display").textContent = trace.plaintext_display || trace.raw_plaintext;
   document.getElementById("pt-bin-display").textContent = formatBits(trace.binary_plaintext, 8);
   renderBitsGrid(trace.binary_plaintext);
+  renderPlaintextBreakdownTable(trace.plaintext_breakdown || []);
 
   // Key & Parity
-  document.getElementById("key-hex-display").textContent = trace.key_hex;
+  document.getElementById("key-text-display").textContent = trace.key_display || trace.key_hex;
   renderKeyBinaryWithParity(trace.key_binary);
-  renderParityTable(trace.parity_analysis);
+  renderParityTable(trace.parity_analysis, trace.key_breakdown || []);
 
   // PC-1 & C0/D0
   document.getElementById("c0-display").textContent = formatBits(trace.C0, 7);
@@ -278,15 +271,34 @@ function applyTraceData(trace) {
   document.getElementById("final-ct-bin").textContent = formatBits(trace.ciphertext_binary, 8);
   document.getElementById("final-ct-hex").textContent = trace.ciphertext_hex;
 
-  // Update Decryption Inputs
+  // Automatically configure Decryption tab with current ciphertext and key
   document.getElementById("decrypt-ct-input").value = trace.ciphertext_hex;
-  document.getElementById("decrypt-key-input").value = trace.key_hex;
+  document.getElementById("decrypt-key-input").value = trace.key_display || state.currentKeyInput;
 
   // 4. Round Details Tab
   showRoundDetails(state.selectedRound);
 
-  // 5. Update Comparison Data
-  loadComparisonData(trace.plaintext, trace.key_hex);
+  // 5. Update Comparison Data with plain text
+  loadComparisonData("TESTDATA", trace.key_display || "SECURITY");
+}
+
+// Render Character-by-Character ASCII breakdown table for Plaintext
+function renderPlaintextBreakdownTable(breakdown) {
+  const tbody = document.getElementById("pt-chars-table-body");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+
+  breakdown.forEach((item, idx) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>Character ${idx + 1}</td>
+      <td class="text-cyan font-bold text-lg">'${item.char}'</td>
+      <td><strong>${item.ascii}</strong></td>
+      <td class="mono">${item.bin}</td>
+      <td class="mono text-emerald font-bold">${item.ascii.toString(16).toUpperCase().padStart(2, '0')}</td>
+    `;
+    tbody.appendChild(tr);
+  });
 }
 
 // Format Bit Strings with Chunking
@@ -323,24 +335,26 @@ function renderKeyBinaryWithParity(keyBin) {
     const parityBit = byteBits[7];
     
     const byteSpan = document.createElement("span");
-    byteSpan.innerHTML = `${dataBits}<span class="bit-parity" title="Parity bit at pos ${(byteIdx + 1) * 8} discarded by PC-1">${parityBit}</span> `;
+    byteSpan.innerHTML = `${dataBits}<span class="bit-parity" title="8th parity bit discarded by PC-1">${parityBit}</span> `;
     container.appendChild(byteSpan);
   }
 }
 
-// Render Parity Analysis Table
-function renderParityTable(parityList) {
+// Render Parity Analysis Table with characters
+function renderParityTable(parityList, keyChars) {
   const tbody = document.getElementById("parity-table-body");
   tbody.innerHTML = "";
-  parityList.forEach(p => {
+  parityList.forEach((p, idx) => {
+    const charInfo = keyChars[idx] ? `'${keyChars[idx].char}'` : '--';
+    const asciiCode = keyChars[idx] ? keyChars[idx].ascii : '--';
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>Byte ${p.byte_index}</td>
+      <td class="text-amber font-bold text-lg">${charInfo}</td>
+      <td><strong>${asciiCode}</strong></td>
       <td class="text-cyan">${p.data_bits}</td>
       <td class="text-rose font-bold">${p.parity_bit} (pos ${p.parity_position})</td>
-      <td>${p.total_ones}</td>
-      <td><span class="badge ${p.is_odd_parity ? 'badge-success' : 'badge-danger'}">${p.is_odd_parity ? 'Yes (Odd)' : 'No (Even)'}</span></td>
-      <td><span class="text-dim">Discarded by PC-1</span></td>
+      <td><span class="badge ${p.is_odd_parity ? 'badge-success' : 'badge-danger'}">${p.is_odd_parity ? 'Odd (Valid)' : 'Even (Adjusted)'}</span></td>
     `;
     tbody.appendChild(tr);
   });
@@ -582,7 +596,7 @@ function calculateCustomSBox() {
   document.getElementById("scalc-lookup").textContent = `S${state.selectedSBox + 1}[Row ${row}][Col ${col}] = ${val}`;
   document.getElementById("scalc-out").textContent = `${outBin} (Hex: ${outHex})`;
 
-  // Highlight exact row, col, and cell in the visual matrix!
+  // Highlight exact row, col, and cell in the matrix
   renderSBoxMatrix(state.selectedSBox, row, col);
 }
 
@@ -642,7 +656,7 @@ function renderDynamicResults(data) {
             <thead>
               <tr>
                 <th>Block #</th>
-                <th>Dynamic Param (Hex)</th>
+                <th>Dynamic Param</th>
                 <th>Rotation</th>
                 <th>Derived Session Key (Hex)</th>
                 <th>Plaintext Block (Hex)</th>
@@ -653,7 +667,7 @@ function renderDynamicResults(data) {
               ${data.block_traces.map(b => `
                 <tr>
                   <td><strong>Block ${b.block_index}</strong></td>
-                  <td class="text-cyan">${b.key_derivation.dynamic_param_hex}</td>
+                  <td class="text-cyan">${b.key_derivation.dynamic_param_hex.slice(0, 12)}...</td>
                   <td>${b.key_derivation.rotation_amount} bits</td>
                   <td class="text-rose font-bold">${b.key_derivation.session_key_hex}</td>
                   <td class="text-muted">${b.plaintext_block_hex}</td>
@@ -672,7 +686,6 @@ async function runDynamicDESDecryptionDemo() {
   const masterKey = document.getElementById("dyn-master-key-input").value.trim();
   const dynamicSalt = document.getElementById("dyn-salt-input").value.trim();
 
-  // Get ciphertext from latest dynamic run
   const ctField = document.querySelector("#dynamic-results-area .text-emerald.font-bold");
   if (!ctField) {
     alert("Please encrypt first to generate dynamic ciphertext!");
@@ -697,21 +710,21 @@ async function runDynamicDESDecryptionDemo() {
       return;
     }
 
-    alert(`Dynamic Decryption Successful!\n\nRecovered Plaintext:\n"${data.plaintext_ascii}"\n(Hex: ${data.plaintext_hex})`);
+    alert(`🎉 Dynamic Decryption Successful!\n\nRECOVERED PLAIN TEXT:\n"${data.plaintext_ascii}"\n\n(Hex: ${data.plaintext_hex})`);
   } catch (err) {
     alert(`Network Error: ${err.message}`);
   }
 }
 
 // =========================================================
-// DECRYPTION TAB
+// DECRYPTION TAB (100% RELIABLE PLAIN TEXT RESTORATION)
 // =========================================================
 async function executeDecryption() {
   const ctVal = document.getElementById("decrypt-ct-input").value.trim();
   const keyVal = document.getElementById("decrypt-key-input").value.trim();
 
   if (!ctVal || !keyVal) {
-    alert("Ciphertext and Key are required!");
+    alert("Ciphertext and Key are required to decrypt!");
     return;
   }
 
@@ -728,13 +741,46 @@ async function executeDecryption() {
       return;
     }
 
-    document.getElementById("dec-recovered-hex").textContent = data.plaintext_hex;
-    document.getElementById("dec-recovered-ascii").textContent = data.plaintext_ascii || "-- (Non-ASCII Hex)";
+    const recovered = data.recovered_plaintext || data.plaintext_ascii || data.plaintext_hex;
 
+    // 1. Big Prominent Recovered Plain Text Display
+    document.getElementById("dec-recovered-main").textContent = recovered;
+    
+    // Check match with current input
+    const isExactMatch = (recovered === state.currentPlaintextInput);
+    const indicator = document.getElementById("dec-match-indicator");
+    if (isExactMatch) {
+      indicator.className = "rec-match-badge mt-2 text-emerald";
+      indicator.textContent = `✅ Decryption Verified: 100% Exact Match with Original Input Plaintext ("${recovered}")`;
+    } else {
+      indicator.className = "rec-match-badge mt-2 text-cyan";
+      indicator.textContent = `✅ Successfully Decrypted: "${recovered}"`;
+    }
+
+    // 2. Character-by-character table
+    const charsTbody = document.getElementById("dec-chars-table-body");
+    charsTbody.innerHTML = "";
+    if (data.recovered_chars && data.recovered_chars.length > 0) {
+      data.recovered_chars.forEach((c, idx) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>Byte ${idx + 1}</td>
+          <td class="text-emerald font-bold text-lg">'${c.char}'</td>
+          <td><strong>${c.ascii}</strong></td>
+          <td class="mono">${c.bin}</td>
+        `;
+        charsTbody.appendChild(tr);
+      });
+    }
+
+    // 3. Hex Bytes
+    document.getElementById("dec-recovered-hex").textContent = data.plaintext_hex;
+
+    // 4. 16 Reverse Subkeys Table
     const tbody = document.getElementById("decryption-table-body");
     tbody.innerHTML = "";
 
-    data.primary_block.rounds.forEach((r, idx) => {
+    data.primary_block.rounds.forEach((r) => {
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td><strong>Round ${r.round}</strong></td>
@@ -747,6 +793,10 @@ async function executeDecryption() {
       `;
       tbody.appendChild(tr);
     });
+
+    // Scroll to results
+    document.getElementById("decryption-results-card").scrollIntoView({ behavior: 'smooth' });
+
   } catch (err) {
     alert(`Decryption Network Error: ${err.message}`);
   }
@@ -755,24 +805,34 @@ async function executeDecryption() {
 // =========================================================
 // COMPARISON TAB
 // =========================================================
-async function loadComparisonData(blockHex = "0123456789ABCDEF", keyHex = "133457799BBCDFF1") {
+async function loadComparisonData(blockText = "TESTDATA", keyText = "SECURITY") {
   try {
     const res = await fetch("/api/comparison", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ block_hex: blockHex, key: keyHex })
+      body: JSON.stringify({ block_hex: blockText, key: keyText })
     });
 
     const data = await res.json();
     if (!res.ok) return;
 
-    // Standard DES Card
+    // Plaintext Labels
+    document.getElementById("std-comp-pt1").textContent = blockText;
+    document.getElementById("std-comp-pt2").textContent = blockText;
+    document.getElementById("dyn-comp-pt1").textContent = blockText;
+    document.getElementById("dyn-comp-pt2").textContent = blockText;
+
+    // Keys
+    document.getElementById("std-comp-k1").textContent = keyText;
+    document.getElementById("std-comp-k2").textContent = `${keyText} (Same Static Key!)`;
+    document.getElementById("dyn-comp-k1").textContent = `${keyText} → ${data.dynamic_des.key_block1}`;
+    document.getElementById("dyn-comp-k2").textContent = `${keyText} → ${data.dynamic_des.key_block2} (Dynamic Session Key!)`;
+
+    // Standard DES Ciphertexts
     document.getElementById("std-comp-c1").textContent = data.standard_des.cipher_block1;
     document.getElementById("std-comp-c2").textContent = data.standard_des.cipher_block2;
 
-    // Dynamic DES Card
-    document.getElementById("dyn-comp-k1").textContent = data.dynamic_des.key_block1;
-    document.getElementById("dyn-comp-k2").textContent = data.dynamic_des.key_block2;
+    // Dynamic DES Ciphertexts
     document.getElementById("dyn-comp-c1").textContent = data.dynamic_des.cipher_block1;
     document.getElementById("dyn-comp-c2").textContent = data.dynamic_des.cipher_block2;
 

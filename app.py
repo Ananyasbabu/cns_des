@@ -2,6 +2,7 @@
 
 import os
 import sys
+import re
 from flask import Flask, request, jsonify, send_from_directory
 from backend.des.tables import (
     IP, IP_INV, E_EXPANSION, PC1, PC2, P_PERMUTATION, LEFT_SHIFTS, S_BOXES, PARITY_BIT_POSITIONS
@@ -92,8 +93,8 @@ def api_encrypt():
     input_type = data.get("input_type", "ascii").lower()
     
     try:
-        # Validate inputs
-        validated_key_hex = validate_key(key_input, input_type="hex")
+        # Validate inputs - accepts plain text keys directly
+        validated_key_hex = validate_key(key_input, input_type="auto")
         validated_pt, clean_type = validate_plaintext(plaintext, input_type=input_type)
         
         # Execute encryption with full intermediate trace
@@ -114,7 +115,7 @@ def api_decrypt():
     key_input = data.get("key", "")
     
     try:
-        validated_key_hex = validate_key(key_input, input_type="hex")
+        validated_key_hex = validate_key(key_input, input_type="auto")
         clean_ct = validate_hex_string(ciphertext_hex, field_name="Ciphertext")
         
         if len(clean_ct) % 16 != 0:
@@ -142,8 +143,8 @@ def api_dynamic_encrypt():
     input_type = data.get("input_type", "ascii").lower()
     
     try:
-        validated_master_key = validate_key(master_key_input, input_type="hex")
-        validated_salt = validate_hex_string(dynamic_salt, expected_length=16, field_name="Dynamic Salt")
+        validated_master_key = validate_key(master_key_input, input_type="auto")
+        validated_salt = validate_key(dynamic_salt, input_type="auto")
         validated_pt, clean_type = validate_plaintext(plaintext, input_type=input_type)
         
         result = encrypt_dynamic_des(
@@ -169,8 +170,8 @@ def api_dynamic_decrypt():
     dynamic_salt = data.get("dynamic_salt", "A5A5A5A5A5A5A5A5")
     
     try:
-        validated_master_key = validate_key(master_key_input, input_type="hex")
-        validated_salt = validate_hex_string(dynamic_salt, expected_length=16, field_name="Dynamic Salt")
+        validated_master_key = validate_key(master_key_input, input_type="auto")
+        validated_salt = validate_key(dynamic_salt, input_type="auto")
         clean_ct = validate_hex_string(ciphertext_hex, field_name="Ciphertext")
         
         result = decrypt_dynamic_des(
@@ -191,11 +192,18 @@ def api_comparison():
     """Compare Standard DES vs Dynamic DES on identical plaintext blocks."""
     data = request.get_json(force=True, silent=True) or {}
     block_hex = data.get("block_hex", "0123456789ABCDEF")
-    key_hex = data.get("key", "133457799BBCDFF1")
+    key_hex = data.get("key", "SECURITY")
     
     try:
-        clean_block = validate_hex_string(block_hex, expected_length=16, field_name="Plaintext Block")
-        clean_key = validate_key(key_hex, input_type="hex")
+        # If user provides plain text or hex for block
+        if len(block_hex) != 16 or not re.fullmatch(r"^[0-9a-fA-F]+$", block_hex):
+            # treat as ascii block
+            raw_b = block_hex.encode('utf-8')[:8].ljust(8, b' ')
+            clean_block = raw_b.hex().upper()
+        else:
+            clean_block = block_hex.upper()
+
+        clean_key = validate_key(key_hex, input_type="auto")
         result = compare_standard_vs_dynamic(clean_block, clean_key)
         return jsonify(result)
     except ValidationError as ve:

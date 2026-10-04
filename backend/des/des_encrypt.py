@@ -6,7 +6,7 @@ from backend.des.permutation import permute, split_half
 from backend.des.key_schedule import generate_round_keys, generate_key_schedule_trace
 from backend.des.round_function import execute_des_round
 from backend.utils.binary_utils import (
-    hex_to_bin, bin_to_hex, text_to_bytes, bytes_to_bin,
+    hex_to_bin, bin_to_hex, text_to_bytes, bytes_to_bin, bin_to_bytes,
     pad_pkcs7, split_into_64bit_blocks
 )
 
@@ -127,13 +127,42 @@ def encrypt_des(plaintext: str, key_hex: str, input_type: str = "hex") -> Dict[s
             "key": r["round_key_bin"],
             "key_hex": r["round_key_hex"]
         })
+
+    # Character-by-character ASCII breakdown for educational clarity
+    pt_breakdown = []
+    for ch in plaintext:
+        code = ord(ch)
+        pt_breakdown.append({
+            "char": ch if ch != " " else "(space)",
+            "ascii": code,
+            "bin": bin(code)[2:].zfill(8)
+        })
+
+    key_bytes = bin_to_bytes(key_64_bin)
+    key_breakdown = []
+    for b in key_bytes:
+        char_rep = chr(b) if 32 <= b <= 126 else f"\\x{b:02X}"
+        key_breakdown.append({
+            "char": char_rep,
+            "ascii": b,
+            "bin": bin(b)[2:].zfill(8)
+        })
+
+    try:
+        key_plain = key_bytes.decode('utf-8', errors='replace')
+    except Exception:
+        key_plain = clean_key_hex
         
     # Assemble master response
     return {
         "status": "success",
         "input_type": input_type,
         "raw_plaintext": plaintext,
+        "plaintext_display": plaintext,
+        "key_display": key_plain,
         "raw_ascii": raw_ascii,
+        "plaintext_breakdown": pt_breakdown,
+        "key_breakdown": key_breakdown,
         "total_blocks": len(blocks_bin),
         "key_hex": clean_key_hex,
         "key_binary": key_64_bin,

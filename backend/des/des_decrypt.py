@@ -93,13 +93,28 @@ def decrypt_des(ciphertext_hex: str, key_hex: str) -> Dict[str, Any]:
     recovered_bin_str = "".join(all_pt_bin)
     recovered_hex_str = "".join(all_pt_hex)
     
-    # Try ASCII decoding
+    # Try ASCII / UTF-8 decoding
     recovered_bytes = bin_to_bytes(recovered_bin_str)
     unpadded_bytes = unpad_pkcs7(recovered_bytes)
+    recovered_ascii = ""
     try:
-        recovered_ascii = unpadded_bytes.decode('utf-8', errors='replace')
+        recovered_ascii = unpadded_bytes.decode('utf-8')
     except Exception:
-        recovered_ascii = ""
+        try:
+            recovered_ascii = unpadded_bytes.decode('latin-1').rstrip('\x00')
+        except Exception:
+            recovered_ascii = ""
+
+    # Generate character breakdown for educational visual inspection
+    recovered_chars = []
+    if recovered_ascii:
+        for ch in recovered_ascii:
+            code = ord(ch)
+            recovered_chars.append({
+                "char": ch if ch != " " else "(space)",
+                "ascii": code,
+                "bin": bin(code)[2:].zfill(8)
+            })
         
     return {
         "status": "success",
@@ -110,6 +125,8 @@ def decrypt_des(ciphertext_hex: str, key_hex: str) -> Dict[str, Any]:
         "plaintext_hex": recovered_hex_str,
         "plaintext_binary": recovered_bin_str,
         "plaintext_ascii": recovered_ascii,
+        "recovered_plaintext": recovered_ascii if recovered_ascii else recovered_hex_str,
+        "recovered_chars": recovered_chars,
         "primary_block": primary_block,
         "block_traces": block_traces
     }
