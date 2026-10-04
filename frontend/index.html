@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dynamic DES — Step-by-Step DES Encryption Visualizer</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Header / Navigation Bar -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="logo-badge">
+        <span class="logo-icon">🔐</span>
+        <div>
+          <h1 class="app-title">Dynamic DES</h1>
+          <p class="app-subtitle">Step-by-Step DES & Dynamic Key Visualizer</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Stats Cards in Header -->
+    <div class="header-metrics">
+      <div class="metric-pill">
+        <span class="m-label">Block Size</span>
+        <span class="m-val">64 bits</span>
+      </div>
+      <div class="metric-pill">
+        <span class="m-label">Effective Key</span>
+        <span class="m-val text-amber">56 bits</span>
+      </div>
+      <div class="metric-pill">
+        <span class="m-label">Rounds</span>
+        <span class="m-val text-cyan">16</span>
+      </div>
+      <div class="metric-pill">
+        <span class="m-label">S-Boxes</span>
+        <span class="m-val text-emerald">8</span>
+      </div>
+      <div class="metric-pill">
+        <span class="m-label">Subkey</span>
+        <span class="m-val text-rose">48 bits</span>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <button id="btn-toggle-presentation" class="btn btn-outline" title="Toggle simplified conceptual explanations for college demonstration">
+        <span class="btn-icon">🎓</span>
+        <span id="pres-status-text">Presentation Mode: OFF</span>
+      </button>
+      <button id="btn-toggle-theme" class="btn btn-icon-only" title="Toggle Dark/Light Mode">
+        <span id="theme-icon">🌙</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Presentation Banner (Conditional) -->
+  <div id="presentation-banner" class="presentation-banner hidden">
+    <div class="banner-content">
+      <span class="banner-badge">🎓 COLLEGE PRESENTATION MODE ACTIVE</span>
+      <span class="banner-desc">Technical bitwise operations are paired with straightforward conceptual explanations suitable for viva and classroom explanation.</span>
+    </div>
+  </div>
+
+  <!-- Primary Tab Bar -->
+  <nav class="main-tabs-nav">
+    <div class="tabs-scroll-container">
+      <button class="nav-tab active" data-tab="tab-dashboard">📊 Dashboard</button>
+      <button class="nav-tab" data-tab="tab-input">📥 Plaintext & Key</button>
+      <button class="nav-tab" data-tab="tab-keys">🔑 Key Generation</button>
+      <button class="nav-tab" data-tab="tab-encryption">🔄 DES Encryption</button>
+      <button class="nav-tab" data-tab="tab-rounds">🔍 Round Details</button>
+      <button class="nav-tab" data-tab="tab-sbox">📦 S-Box Analysis</button>
+      <button class="nav-tab" data-tab="tab-dynamic">⚡ Dynamic DES</button>
+      <button class="nav-tab" data-tab="tab-decryption">🔓 Decryption</button>
+      <button class="nav-tab" data-tab="tab-comparison">⚖️ Comparison</button>
+    </div>
+  </nav>
+
+  <!-- Step-by-Step Playback Controller Bar -->
+  <section class="playback-bar">
+    <div class="playback-controls">
+      <button id="btn-step-first" class="btn-control" title="Go to First Step">⏮️</button>
+      <button id="btn-step-prev" class="btn-control" title="Previous Step">◀️ Prev</button>
+      <button id="btn-step-play" class="btn-control btn-play" title="Play Step-by-Step Animation">▶️ Play</button>
+      <button id="btn-step-pause" class="btn-control hidden" title="Pause Animation">⏸️ Pause</button>
+      <button id="btn-step-next" class="btn-control" title="Next Step">Next ▶️</button>
+      <button id="btn-step-last" class="btn-control" title="Go to Last Step">⏭️</button>
+      <button id="btn-step-reset" class="btn-control btn-reset" title="Reset to Beginning">↺ Reset</button>
+    </div>
+
+    <!-- Step Indicator Progress -->
+    <div class="step-indicator-wrapper">
+      <div class="step-title-row">
+        <span class="current-step-badge" id="step-counter-badge">Step 1 of 11</span>
+        <span class="current-step-label" id="step-title-display">Plaintext Conversion to 64-bit Binary</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-bar-fill" id="step-progress-fill" style="width: 9%;"></div>
+      </div>
+    </div>
+
+    <div class="playback-actions">
+      <label class="speed-slider-label">
+        Speed:
+        <input type="range" id="playback-speed" min="500" max="3000" step="250" value="1500">
+        <span id="speed-display">1.5s</span>
+      </label>
+      <button id="btn-show-all-steps" class="btn btn-secondary btn-sm">📜 Show All Steps</button>
+    </div>
+  </section>
+
+  <!-- Global Quick Input Ribbon -->
+  <div class="quick-input-ribbon">
+    <div class="input-inline-group">
+      <span class="inline-label">Input Mode:</span>
+      <div class="radio-toggle-group">
+        <label><input type="radio" name="input_mode" value="hex" checked> Hex Test Vector</label>
+        <label><input type="radio" name="input_mode" value="ascii"> ASCII Text</label>
+      </div>
+    </div>
+
+    <div class="input-inline-group flex-1">
+      <span class="inline-label">Plaintext:</span>
+      <input type="text" id="quick-pt-input" class="mono-input" value="0123456789ABCDEF" placeholder="Hex (16 chars) or ASCII text">
+    </div>
+
+    <div class="input-inline-group flex-1">
+      <span class="inline-label">DES Key (64-bit Hex):</span>
+      <input type="text" id="quick-key-input" class="mono-input" value="133457799BBCDFF1" placeholder="16 hex characters">
+    </div>
+
+    <div class="ribbon-buttons">
+      <button id="btn-load-test-vector" class="btn btn-outline btn-sm" title="Load Standard NIST Test Vector">
+        🎯 Load Test Vector
+      </button>
+      <button id="btn-run-encryption" class="btn btn-primary btn-sm">
+        🚀 Start Encryption
+      </button>
+    </div>
+  </div>
+
+  <!-- Main App Tab Content Area -->
+  <main class="main-content">
+
+    <!-- ========================================== -->
+    <!-- TAB 1: DASHBOARD -->
+    <!-- ========================================== -->
+    <div id="tab-dashboard" class="tab-pane active">
+      <section class="hero-card">
+        <div class="hero-left">
+          <h2>Dynamic DES — Educational Cryptography Visualizer</h2>
+          <p class="hero-text">
+            A comprehensive, step-by-step educational platform implementing the standard <strong>NIST FIPS 46-3 Data Encryption Standard (DES)</strong> completely from scratch, alongside a modern <strong>Dynamic Key Changing Mechanism</strong> designed for academic and laboratory demonstrations.
+          </p>
+          <div class="hero-buttons">
+            <button class="btn btn-primary" onclick="switchTab('tab-input')">🚀 Start Encryption Demo</button>
+            <button class="btn btn-outline" onclick="switchTab('tab-encryption')">🔄 Inspect DES Pipeline</button>
+            <button class="btn btn-outline text-amber" onclick="switchTab('tab-dynamic')">⚡ Explore Dynamic DES</button>
+          </div>
+        </div>
+        <div class="hero-right">
+          <div class="pipeline-flow-diagram">
+            <div class="flow-node">Plaintext (64 bits)</div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-node">Initial Permutation (IP)</div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-node highlight">16 Feistel Rounds (L0..L16, R0..R16)</div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-node">32-Bit Swap (R16 || L16)</div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-node">Inverse IP (IP⁻¹)</div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-node success">Ciphertext (64 bits)</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Architecture & Specification Cards -->
+      <div class="spec-grid">
+        <div class="card spec-card">
+          <div class="card-icon">📐</div>
+          <h3>DES Block Structure</h3>
+          <p>Operates on fixed <strong>64-bit plaintext blocks</strong>. Uses a symmetric 16-round <strong>Feistel network</strong> where decryption follows the exact same algorithm using reverse round keys.</p>
+          <ul class="spec-list">
+            <li>Block Size: 64 bits (8 bytes)</li>
+            <li>Structure: Feistel Network</li>
+            <li>Reversibility: Guaranteed</li>
+          </ul>
+        </div>
+
+        <div class="card spec-card">
+          <div class="card-icon">🔑</div>
+          <h3>Key Schedule & Parity</h3>
+          <p>Takes a 64-bit key, strips <strong>8 parity bits</strong> (bits 8, 16, 24, 32, 40, 48, 56, 64) via PC-1 to yield a <strong>56-bit key</strong>, generating 16 48-bit subkeys via circular left shifts and PC-2.</p>
+          <ul class="spec-list">
+            <li>Supplied Key: 64 bits</li>
+            <li>Effective Key: 56 bits</li>
+            <li>16 Subkeys: 48 bits each</li>
+          </ul>
+        </div>
+
+        <div class="card spec-card">
+          <div class="card-icon">📦</div>
+          <h3>Confusion & Diffusion</h3>
+          <p>Non-linear confusion is provided exclusively by <strong>8 S-Boxes ($S_1$ to $S_8$)</strong>, mapping 6-bit inputs to 4-bit outputs. Bit-level diffusion is achieved via the 32-bit <strong>P-Box</strong>.</p>
+          <ul class="spec-list">
+            <li>Expansion E: 32 → 48 bits</li>
+            <li>S-Boxes: 8 non-linear matrices</li>
+            <li>P-Box: 32 → 32 straight permutation</li>
+          </ul>
+        </div>
+
+        <div class="card spec-card border-amber">
+          <div class="card-icon">⚡</div>
+          <h3>Dynamic DES Contribution</h3>
+          <p>Eliminates the standard DES Electronic Codebook (ECB) vulnerability. Injects dynamic block counters and nonces to derive distinct session keys per block, defeating frequency analysis.</p>
+          <ul class="spec-list">
+            <li>Master Key + Block Parameter</li>
+            <li>Dynamic Parity Adjustment</li>
+            <li>Eliminates Repeated Ciphertext</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 2: PLAINTEXT & KEY PROCESSING -->
+    <!-- ========================================== -->
+    <div id="tab-input" class="tab-pane">
+      <div class="section-header">
+        <h2>Plaintext & Key Processing</h2>
+        <p class="section-sub">Step 1 & Step 2: Binary block formation, parity bit extraction, and PC-1 Permutation.</p>
+      </div>
+
+      <!-- Presentation Note Box -->
+      <div class="presentation-card pres-box hidden">
+        <h4>🎓 Conceptual Explanation</h4>
+        <p id="pres-input-note">Plaintext is converted to binary and grouped into 64-bit blocks. The 64-bit user key has 8 parity bits that are inspected and discarded by PC-1, leaving 56 effective bits.</p>
+      </div>
+
+      <div class="two-col-grid">
+        <!-- Plaintext Card -->
+        <div class="card">
+          <div class="card-header">
+            <h3>📥 Plaintext Block Breakdown (64 bits)</h3>
+            <span class="badge" id="pt-blocks-count-badge">1 Block</span>
+          </div>
+          <div class="card-body">
+            <div class="data-row">
+              <span class="row-label">Raw Input:</span>
+              <span class="row-val mono" id="pt-raw-display">0123456789ABCDEF</span>
+            </div>
+            <div class="data-row">
+              <span class="row-label">Hex Representation:</span>
+              <span class="row-val mono text-cyan" id="pt-hex-display">0123456789ABCDEF</span>
+            </div>
+            <div class="data-group">
+              <label class="group-label">64-bit Binary String (8 Bytes):</label>
+              <div class="binary-box mono" id="pt-bin-display">
+                00000001 00100011 01000101 01100111 10001001 10101011 11001101 11101111
+              </div>
+            </div>
+            <div class="data-group">
+              <label class="group-label">64-Bit Grid View (Positions 1 to 64):</label>
+              <div class="bits-grid" id="pt-bits-grid"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Key & Parity Card -->
+        <div class="card">
+          <div class="card-header">
+            <h3>🔑 64-Bit Key & Parity Bit Inspection</h3>
+            <span class="badge text-amber" id="parity-status-badge">Parity Verified</span>
+          </div>
+          <div class="card-body">
+            <div class="data-row">
+              <span class="row-label">Key (Hex):</span>
+              <span class="row-val mono text-amber" id="key-hex-display">133457799BBCDFF1</span>
+            </div>
+            <div class="data-group">
+              <label class="group-label">64-bit Key Binary (Parity Bits Highlighted in Red):</label>
+              <div class="binary-box mono" id="key-bin-display">
+                0001001<span class="bit-parity">1</span> 0011010<span class="bit-parity">0</span> 0101011<span class="bit-parity">1</span> 0111100<span class="bit-parity">1</span> 1001101<span class="bit-parity">1</span> 1011110<span class="bit-parity">0</span> 1101111<span class="bit-parity">1</span> 1111000<span class="bit-parity">1</span>
+              </div>
+            </div>
+
+            <!-- Parity Table -->
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Byte #</th>
+                    <th>Data Bits (7 bits)</th>
+                    <th>Parity Bit (Pos)</th>
+                    <th>Total 1s</th>
+                    <th>Odd Parity?</th>
+                    <th>PC-1 Status</th>
+                  </tr>
+                </thead>
+                <tbody id="parity-table-body">
+                  <!-- Populated by JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PC-1 Permutation & C0/D0 Split Card -->
+      <div class="card mt-4">
+        <div class="card-header">
+          <h3>✂️ Permuted Choice 1 (PC-1) → 56-Bit Effective Key & C0/D0 Split</h3>
+        </div>
+        <div class="card-body">
+          <div class="pc1-banner">
+            <span>64-bit Supplied Key</span>
+            <span class="banner-arrow">→ PC-1 (drops 8 parity bits) →</span>
+            <span class="text-amber">56-bit Effective Key</span>
+            <span class="banner-arrow">→ Split 28/28 →</span>
+            <span class="text-cyan">C0 (28 bits)</span> + <span class="text-emerald">D0 (28 bits)</span>
+          </div>
+
+          <div class="two-col-grid mt-3">
+            <div class="card bg-subtle">
+              <div class="sub-header text-cyan">C0 — Left Half (28 bits)</div>
+              <div class="binary-box mono small" id="c0-display"></div>
+            </div>
+            <div class="card bg-subtle">
+              <div class="sub-header text-emerald">D0 — Right Half (28 bits)</div>
+              <div class="binary-box mono small" id="d0-display"></div>
+            </div>
+          </div>
+
+          <div class="data-group mt-3">
+            <label class="group-label">PC-1 Permutation Table (56 entries: 28 for C0, 28 for D0):</label>
+            <div class="table-container">
+              <div class="matrix-display" id="pc1-table-matrix"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 3: KEY GENERATION -->
+    <!-- ========================================== -->
+    <div id="tab-keys" class="tab-pane">
+      <div class="section-header">
+        <h2>Key Generation (16 Round Subkeys K1 to K16)</h2>
+        <p class="section-sub">Left circular shifts of C and D halves followed by Permuted Choice 2 (PC-2) 56-to-48 bit compression.</p>
+      </div>
+
+      <div class="presentation-card pres-box hidden">
+        <h4>🎓 Conceptual Explanation</h4>
+        <p>In each round, the 28-bit halves C and D are circularly shifted left (by 1 bit in rounds 1, 2, 9, 16, and by 2 bits in all other rounds). PC-2 then compresses the 56 shifted bits into a 48-bit round subkey.</p>
+      </div>
+
+      <!-- Shift Schedule Visualizer -->
+      <div class="card">
+        <div class="card-header">
+          <h3>🔄 16-Round Shift Schedule</h3>
+          <span class="badge">Total Shifts: 28 bits (360° rotation)</span>
+        </div>
+        <div class="card-body">
+          <div class="shift-badges-row" id="shift-schedule-badges">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- 16 Round Keys Table -->
+      <div class="card mt-4">
+        <div class="card-header">
+          <h3>📋 16 Round Subkeys Table (Click Any Row to Inspect)</h3>
+          <span class="badge text-cyan">Interactive</span>
+        </div>
+        <div class="card-body">
+          <div class="table-container">
+            <table class="data-table interactive-table" id="keys-table">
+              <thead>
+                <tr>
+                  <th>Round</th>
+                  <th>Shift</th>
+                  <th>C Half (28 bits)</th>
+                  <th>D Half (28 bits)</th>
+                  <th>Round Key K_i (48 bits Binary)</th>
+                  <th>Subkey Hex</th>
+                </tr>
+              </thead>
+              <tbody id="keys-table-body">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Key Detail Modal / Inspector Box -->
+      <div class="card mt-4" id="key-inspector-card">
+        <div class="card-header">
+          <h3 id="key-detail-title">🔍 Subkey K1 Detailed Generation</h3>
+        </div>
+        <div class="card-body">
+          <div class="key-trace-grid" id="key-detail-content">
+            <!-- Populated by JS on click -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 4: DES ENCRYPTION PIPELINE -->
+    <!-- ========================================== -->
+    <div id="tab-encryption" class="tab-pane">
+      <div class="section-header">
+        <h2>DES Encryption Pipeline</h2>
+        <p class="section-sub">Initial Permutation (IP), 16 Feistel rounds, pre-output 32-bit swap, and Inverse Initial Permutation (IP⁻¹).</p>
+      </div>
+
+      <div class="presentation-card pres-box hidden">
+        <h4>🎓 Conceptual Explanation</h4>
+        <p>The 64-bit plaintext is transposed by IP, split into L0 and R0 (32 bits each), transformed across 16 rounds of Feistel scrambling, swapped as R16 || L16, and permuted by IP⁻¹ to generate the final ciphertext.</p>
+      </div>
+
+      <!-- IP Step Card -->
+      <div class="card">
+        <div class="card-header">
+          <h3>1. Initial Permutation (IP) & L0 / R0 Split</h3>
+        </div>
+        <div class="card-body">
+          <div class="two-col-grid">
+            <div>
+              <label class="group-label">Input Plaintext (64 bits):</label>
+              <div class="binary-box mono small" id="ip-input-display"></div>
+            </div>
+            <div>
+              <label class="group-label">IP Permuted Output (64 bits):</label>
+              <div class="binary-box mono small text-cyan" id="ip-output-display"></div>
+            </div>
+          </div>
+
+          <div class="two-col-grid mt-3">
+            <div class="card bg-subtle">
+              <div class="sub-header text-cyan">L0 = Left 32 bits</div>
+              <div class="binary-box mono small" id="l0-display"></div>
+            </div>
+            <div class="card bg-subtle">
+              <div class="sub-header text-emerald">R0 = Right 32 bits</div>
+              <div class="binary-box mono small" id="r0-display"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 16 Rounds High-Level Summary Grid -->
+      <div class="card mt-4">
+        <div class="card-header">
+          <h3>2. 16 Feistel Rounds Progression</h3>
+          <span class="badge text-emerald">Click any round to view internal Feistel F breakdown</span>
+        </div>
+        <div class="card-body">
+          <div class="table-container">
+            <table class="data-table interactive-table" id="rounds-summary-table">
+              <thead>
+                <tr>
+                  <th>Round</th>
+                  <th>Li-1 (32 bits)</th>
+                  <th>Ri-1 (32 bits)</th>
+                  <th>Round Key Ki (Hex)</th>
+                  <th>F(Ri-1, Ki) (Hex)</th>
+                  <th>Li = Ri-1 (Hex)</th>
+                  <th>Ri = Li-1 ⊕ F (Hex)</th>
+                </tr>
+              </thead>
+              <tbody id="rounds-summary-body">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Swap & Final Permutation Card -->
+      <div class="card mt-4">
+        <div class="card-header">
+          <h3>3. Preoutput Swap & Inverse Initial Permutation (IP⁻¹)</h3>
+        </div>
+        <div class="card-body">
+          <div class="swap-banner">
+            <div class="swap-half">
+              <span class="swap-tag">L16 (32 bits):</span>
+              <span class="mono" id="l16-display"></span>
+            </div>
+            <div class="swap-arrow">⮂ SWAP ⮂</div>
+            <div class="swap-half">
+              <span class="swap-tag">R16 (32 bits):</span>
+              <span class="mono" id="r16-display"></span>
+            </div>
+          </div>
+
+          <div class="data-row mt-3">
+            <span class="row-label">Preoutput (R16 || L16):</span>
+            <span class="row-val mono text-amber" id="preoutput-display"></span>
+          </div>
+
+          <div class="data-row mt-2">
+            <span class="row-label">Final Ciphertext (Binary):</span>
+            <span class="row-val mono text-emerald" id="final-ct-bin"></span>
+          </div>
+
+          <div class="data-row mt-2 highlight-box">
+            <span class="row-label font-bold">Final Ciphertext (Hexadecimal):</span>
+            <span class="row-val mono text-emerald font-bold text-lg" id="final-ct-hex"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 5: ROUND DETAILS (FEISTEL FUNCTION) -->
+    <!-- ========================================== -->
+    <div id="tab-rounds" class="tab-pane">
+      <div class="section-header">
+        <h2>Round Details — The Feistel Function F(R, K)</h2>
+        <p class="section-sub">Inspect the complete internal math: Expansion E, 48-bit XOR with Ki, S-Box substitution, and P-Box permutation.</p>
+      </div>
+
+      <!-- Round Selector Bar -->
+      <div class="round-selector-bar" id="round-pills-bar">
+        <!-- 16 Round Pill Buttons -->
+      </div>
+
+      <div class="presentation-card pres-box hidden mt-3">
+        <h4>🎓 Conceptual Explanation</h4>
+        <p id="pres-round-note">Right half Ri-1 (32 bits) is expanded to 48 bits, XORed with round subkey Ki, substituted through 8 S-boxes to 32 bits, and scrambled through P-box to yield F. Li becomes Ri-1, and Ri becomes Li-1 XOR F.</p>
+      </div>
+
+      <!-- Round Breakdown Card -->
+      <div class="card mt-3">
+        <div class="card-header">
+          <h3 id="current-round-heading">Round 1 Mathematical Execution</h3>
+          <span class="badge text-cyan">Feistel Function F(Ri-1, Ki)</span>
+        </div>
+        <div class="card-body">
+          <!-- Mathematical Formula Cards -->
+          <div class="formula-grid">
+            <div class="formula-card">
+              <span class="formula-title">Left Half Formula</span>
+              <span class="formula-math">L_i = R_{i-1}</span>
+            </div>
+            <div class="formula-card">
+              <span class="formula-title">Right Half Formula</span>
+              <span class="formula-math">R_i = L_{i-1} \oplus F(R_{i-1}, K_i)</span>
+            </div>
+            <div class="formula-card">
+              <span class="formula-title">Feistel Function F</span>
+              <span class="formula-math">F = P(\text{S-Boxes}(E(R_{i-1}) \oplus K_i))</span>
+            </div>
+          </div>
+
+          <!-- Step 1: Expansion E -->
+          <div class="round-step-block">
+            <h4 class="step-num-title">1. Expansion Permutation E (32 bits → 48 bits)</h4>
+            <div class="two-col-grid">
+              <div>
+                <span class="field-label">Input R(i-1) [32 bits]:</span>
+                <div class="binary-box mono small" id="round-r-input"></div>
+              </div>
+              <div>
+                <span class="field-label">Expanded R [48 bits]:</span>
+                <div class="binary-box mono small text-cyan" id="round-r-expanded"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 2: 48-Bit XOR with Ki -->
+          <div class="round-step-block mt-3">
+            <h4 class="step-num-title">2. Bitwise XOR with Round Subkey Ki (48 bits ⊕ 48 bits)</h4>
+            <div class="xor-visual-box mono">
+              <div class="xor-line">
+                <span class="xor-tag">Expanded R: </span>
+                <span id="xor-line-r"></span>
+              </div>
+              <div class="xor-line">
+                <span class="xor-tag">Round Key Ki:</span>
+                <span id="xor-line-k" class="text-rose"></span>
+              </div>
+              <div class="xor-divider">----------------------------------------------------------------</div>
+              <div class="xor-line">
+                <span class="xor-tag">XOR Result:  </span>
+                <span id="xor-line-res" class="text-emerald font-bold"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 3: S-Box 8-Group Breakdown -->
+          <div class="round-step-block mt-3">
+            <h4 class="step-num-title">3. 8 S-Boxes Substitution (48 bits → 32 bits)</h4>
+            <p class="text-muted small">Divided into eight 6-bit blocks: B1 through B8. Row = (b1 b6), Column = (b2 b3 b4 b5).</p>
+            <div class="table-container mt-2">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>S-Box</th>
+                    <th>6-bit Input (b1..b6)</th>
+                    <th>Row Bits (b1 b6)</th>
+                    <th>Row #</th>
+                    <th>Col Bits (b2..b5)</th>
+                    <th>Col #</th>
+                    <th>Decimal</th>
+                    <th>4-bit Output</th>
+                  </tr>
+                </thead>
+                <tbody id="round-sbox-table-body">
+                  <!-- Populated by JS -->
+                </tbody>
+              </table>
+            </div>
+            <div class="data-row mt-2">
+              <span class="row-label">Combined S-Box Output (32 bits):</span>
+              <span class="row-val mono text-emerald" id="round-sbox-combined"></span>
+            </div>
+          </div>
+
+          <!-- Step 4: P-Box Permutation -->
+          <div class="round-step-block mt-3">
+            <h4 class="step-num-title">4. Straight P-Box Permutation (32 bits → 32 bits Diffusion)</h4>
+            <div class="two-col-grid">
+              <div>
+                <span class="field-label">Before P-Box (S-Box 32 bits):</span>
+                <div class="binary-box mono small" id="round-pbox-in"></div>
+              </div>
+              <div>
+                <span class="field-label">After P-Box F(R_{i-1}, K_i) [32 bits]:</span>
+                <div class="binary-box mono small text-cyan" id="round-pbox-out"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 5: XOR with Left Half -->
+          <div class="round-step-block mt-3">
+            <h4 class="step-num-title">5. Final Round Half Computation</h4>
+            <div class="two-col-grid">
+              <div class="card bg-subtle">
+                <span class="field-label">New Left Half L_i = R_{i-1}:</span>
+                <div class="binary-box mono small text-cyan" id="round-final-l"></div>
+              </div>
+              <div class="card bg-subtle">
+                <span class="field-label">New Right Half R_i = L_{i-1} ⊕ F(R_{i-1}, K_i):</span>
+                <div class="binary-box mono small text-emerald" id="round-final-r"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 6: S-BOX ANALYSIS -->
+    <!-- ========================================== -->
+    <div id="tab-sbox" class="tab-pane">
+      <div class="section-header">
+        <h2>S-Box Analysis & Coordinate Lookup Matrix</h2>
+        <p class="section-sub">Inspect all 8 non-linear substitution boxes, interact with custom 6-bit inputs, and view exact matrix coordinate highlights.</p>
+      </div>
+
+      <!-- S-Box Selector Tabs -->
+      <div class="sbox-tabs-nav" id="sbox-tabs-bar">
+        <button class="sbox-pill active" onclick="selectSBoxView(0)">S-Box 1 (S1)</button>
+        <button class="sbox-pill" onclick="selectSBoxView(1)">S-Box 2 (S2)</button>
+        <button class="sbox-pill" onclick="selectSBoxView(2)">S-Box 3 (S3)</button>
+        <button class="sbox-pill" onclick="selectSBoxView(3)">S-Box 4 (S4)</button>
+        <button class="sbox-pill" onclick="selectSBoxView(4)">S-Box 5 (S5)</button>
+        <button class="sbox-pill" onclick="selectSBoxView(5)">S-Box 6 (S6)</button>
+        <button class="sbox-pill" onclick="selectSBoxView(6)">S-Box 7 (S7)</button>
+        <button class="sbox-pill" onclick="selectSBoxView(7)">S-Box 8 (S8)</button>
+      </div>
+
+      <div class="two-col-grid mt-3">
+        <!-- Interactive S-Box Calculator -->
+        <div class="card">
+          <div class="card-header">
+            <h3 id="sbox-calculator-title">⚡ Interactive S1 Tester</h3>
+          </div>
+          <div class="card-body">
+            <p class="text-muted small">Enter any 6-bit binary string (e.g. <code>011011</code> from specification) to see row/column derivation and matrix cell highlight:</p>
+            <div class="sbox-input-group mt-2">
+              <input type="text" id="sbox-custom-input" class="mono-input" maxlength="6" value="011011" placeholder="6 bits (0 or 1)">
+              <button class="btn btn-primary btn-sm" onclick="calculateCustomSBox()">Calculate</button>
+            </div>
+
+            <div class="sbox-calc-results mt-3">
+              <div class="calc-row">
+                <span class="calc-label">6-bit Input:</span>
+                <span class="calc-val mono text-cyan" id="scalc-in">011011</span>
+              </div>
+              <div class="calc-row">
+                <span class="calc-label">Row Bits (b1 + b6):</span>
+                <span class="calc-val mono text-amber" id="scalc-row-bits">0 + 1 = "01" (Row 1)</span>
+              </div>
+              <div class="calc-row">
+                <span class="calc-label">Column Bits (b2..b5):</span>
+                <span class="calc-val mono text-emerald" id="scalc-col-bits">"1101" = (Col 13)</span>
+              </div>
+              <div class="calc-row">
+                <span class="calc-label">Matrix Lookup:</span>
+                <span class="calc-val mono font-bold" id="scalc-lookup">S1[Row 1][Col 13] = 5</span>
+              </div>
+              <div class="calc-row highlight-box">
+                <span class="calc-label font-bold">4-bit Output:</span>
+                <span class="calc-val mono text-emerald font-bold text-lg" id="scalc-out">0101 (Hex: 5)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- S-Box Matrix Display -->
+        <div class="card">
+          <div class="card-header">
+            <h3 id="sbox-matrix-title">S1 Substitution Table (4 Rows × 16 Columns)</h3>
+          </div>
+          <div class="card-body">
+            <div class="table-container">
+              <table class="matrix-table" id="sbox-grid-table">
+                <thead>
+                  <tr id="sbox-grid-header">
+                    <th>Row \ Col</th>
+                    <!-- Columns 0 to 15 -->
+                  </tr>
+                </thead>
+                <tbody id="sbox-grid-body">
+                  <!-- Populated by JS with 4 rows -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 7: DYNAMIC DES -->
+    <!-- ========================================== -->
+    <div id="tab-dynamic" class="tab-pane">
+      <div class="section-header">
+        <h2>Dynamic DES — Block-Dependent Key Changing Mechanism</h2>
+        <p class="section-sub">Eliminates the ECB vulnerability by dynamically deriving a unique 64-bit DES session key for each plaintext block.</p>
+      </div>
+
+      <div class="presentation-card pres-box hidden">
+        <h4>🎓 Conceptual Explanation</h4>
+        <p>In standard DES, encrypting multiple blocks with one key leaks patterns: identical plaintext blocks produce identical ciphertext blocks. Dynamic DES combines a Master Key with dynamic block parameters so every single block encrypts under a fresh, independent session key.</p>
+      </div>
+
+      <!-- Multi-Block Dynamic Flow Chart -->
+      <div class="card">
+        <div class="card-header">
+          <h3>📐 Dynamic DES Architectural Pipeline</h3>
+        </div>
+        <div class="card-body">
+          <div class="dynamic-flow-chart">
+            <div class="flow-master-key">
+              <span class="key-icon">👑</span>
+              <span class="mono">MASTER KEY (64 bits)</span>
+            </div>
+            <div class="flow-split-arrows">
+              <div class="split-branch">
+                <span>↙ Block 1</span>
+                <div class="dyn-card">
+                  <span class="dyn-badge">Dynamic Param 1</span>
+                  <span>↓ Derive Key</span>
+                  <span class="mono text-cyan" id="dyn-k1-badge">Session Key K(1)</span>
+                  <span>↓ 16 Rounds DES</span>
+                  <span class="mono text-emerald" id="dyn-c1-badge">Ciphertext 1</span>
+                </div>
+              </div>
+              <div class="split-branch">
+                <span>↘ Block 2</span>
+                <div class="dyn-card">
+                  <span class="dyn-badge">Dynamic Param 2</span>
+                  <span>↓ Derive Key</span>
+                  <span class="mono text-rose" id="dyn-k2-badge">Session Key K(2)</span>
+                  <span>↓ 16 Rounds DES</span>
+                  <span class="mono text-amber" id="dyn-c2-badge">Ciphertext 2</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dynamic Interactive Form -->
+      <div class="card mt-4">
+        <div class="card-header">
+          <h3>⚡ Execute Dynamic DES on Custom Data</h3>
+        </div>
+        <div class="card-body">
+          <div class="two-col-grid">
+            <div>
+              <label class="group-label">Master Key (64-bit Hex):</label>
+              <input type="text" id="dyn-master-key-input" class="mono-input" value="133457799BBCDFF1">
+            </div>
+            <div>
+              <label class="group-label">Dynamic Salt / Nonce (64-bit Hex):</label>
+              <input type="text" id="dyn-salt-input" class="mono-input" value="A5A5A5A5A5A5A5A5">
+            </div>
+          </div>
+
+          <div class="data-group mt-3">
+            <label class="group-label">Multi-Block Plaintext (Enter repeated text to test pattern resistance):</label>
+            <textarea id="dyn-pt-input" class="mono-input" rows="3">CONFIDENTIAL DATA! CONFIDENTIAL DATA!</textarea>
+          </div>
+
+          <div class="mt-3">
+            <button class="btn btn-primary" onclick="runDynamicDESDemo()">⚡ Encrypt with Dynamic DES</button>
+            <button class="btn btn-outline" onclick="runDynamicDESDecryptionDemo()">🔓 Decrypt Dynamic Ciphertext</button>
+          </div>
+
+          <div id="dynamic-results-area" class="mt-4">
+            <!-- Dynamic blocks traces will be rendered here -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 8: DECRYPTION -->
+    <!-- ========================================== -->
+    <div id="tab-decryption" class="tab-pane">
+      <div class="section-header">
+        <h2>DES Decryption — The Feistel Reversibility Property</h2>
+        <p class="section-sub">Plaintext recovery through the identical 16-round algorithm using subkeys in reverse order: K16 down to K1.</p>
+      </div>
+
+      <div class="presentation-card pres-box hidden">
+        <h4>🎓 Conceptual Explanation</h4>
+        <p>Because DES uses a Feistel cipher structure, the decryption algorithm is mathematically identical to encryption. We simply apply subkeys in exact reverse order (K16, K15, ..., K1) to restore the original plaintext.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3>🔓 Decryption Controls & Verification</h3>
+        </div>
+        <div class="card-body">
+          <div class="two-col-grid">
+            <div>
+              <label class="group-label">Ciphertext (Hex):</label>
+              <input type="text" id="decrypt-ct-input" class="mono-input" value="85E813540F0AB405">
+            </div>
+            <div>
+              <label class="group-label">DES Key (Hex):</label>
+              <input type="text" id="decrypt-key-input" class="mono-input" value="133457799BBCDFF1">
+            </div>
+          </div>
+          <div class="mt-3">
+            <button class="btn btn-primary" onclick="executeDecryption()">🔓 Show Decryption Steps</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Decryption Rounds Table -->
+      <div class="card mt-4" id="decryption-results-card">
+        <div class="card-header">
+          <h3>📋 Decryption 16-Round Execution (Reverse Keys K16 → K1)</h3>
+          <span class="badge text-emerald" id="decryption-status-badge">Recovered</span>
+        </div>
+        <div class="card-body">
+          <div class="data-row highlight-box">
+            <span class="row-label font-bold">Recovered Plaintext (Hex):</span>
+            <span class="row-val mono text-emerald font-bold" id="dec-recovered-hex">0123456789ABCDEF</span>
+          </div>
+          <div class="data-row mt-2">
+            <span class="row-label">Recovered ASCII (if text):</span>
+            <span class="row-val mono" id="dec-recovered-ascii">--</span>
+          </div>
+
+          <div class="table-container mt-3">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Round</th>
+                  <th>Key Applied</th>
+                  <th>Li-1 (Hex)</th>
+                  <th>Ri-1 (Hex)</th>
+                  <th>F(Ri-1, K) (Hex)</th>
+                  <th>Li (Hex)</th>
+                  <th>Ri (Hex)</th>
+                </tr>
+              </thead>
+              <tbody id="decryption-table-body">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 9: COMPARISON (STANDARD VS DYNAMIC) -->
+    <!-- ========================================== -->
+    <div id="tab-comparison" class="tab-pane">
+      <div class="section-header">
+        <h2>Comparison: Standard DES vs Dynamic DES</h2>
+        <p class="section-sub">Direct side-by-side analysis demonstrating why Dynamic DES eliminates the critical Electronic Codebook (ECB) repetition flaw.</p>
+      </div>
+
+      <div class="presentation-card pres-box hidden">
+        <h4>🎓 Conceptual Explanation for Viva / Presentation</h4>
+        <p>In standard DES (ECB mode), encrypting two identical blocks produces identical ciphertext. In Dynamic DES, because the key dynamically rotates with block position, identical blocks produce completely distinct ciphertexts with a high avalanche effect.</p>
+      </div>
+
+      <div class="two-col-grid">
+        <!-- Standard DES Card -->
+        <div class="card border-rose">
+          <div class="card-header">
+            <h3 class="text-rose">❌ Standard DES (Static Key)</h3>
+            <span class="badge badge-danger">Vulnerable to ECB Repetition</span>
+          </div>
+          <div class="card-body">
+            <div class="comparison-block">
+              <span class="comp-label">Identical Plaintext Block 1:</span>
+              <span class="mono text-cyan">0123456789ABCDEF</span>
+              <span class="comp-label">Key Applied:</span>
+              <span class="mono">133457799BBCDFF1</span>
+              <span class="comp-label">Ciphertext Block 1:</span>
+              <span class="mono text-rose font-bold" id="std-comp-c1">85E813540F0AB405</span>
+            </div>
+            <div class="comparison-block mt-3">
+              <span class="comp-label">Identical Plaintext Block 2:</span>
+              <span class="mono text-cyan">0123456789ABCDEF</span>
+              <span class="comp-label">Key Applied:</span>
+              <span class="mono">133457799BBCDFF1 (Same Key!)</span>
+              <span class="comp-label">Ciphertext Block 2:</span>
+              <span class="mono text-rose font-bold" id="std-comp-c2">85E813540F0AB405</span>
+            </div>
+            <div class="alert-box alert-danger mt-3">
+              ⚠️ <strong>C1 == C2:</strong> An eavesdropper immediately identifies that Block 1 and Block 2 contain identical data. Highly susceptible to replay and pattern attacks.
+            </div>
+          </div>
+        </div>
+
+        <!-- Dynamic DES Card -->
+        <div class="card border-emerald">
+          <div class="card-header">
+            <h3 class="text-emerald">✅ Dynamic DES (Dynamic Key Derivation)</h3>
+            <span class="badge badge-success">ECB Vulnerability Eliminated</span>
+          </div>
+          <div class="card-body">
+            <div class="comparison-block">
+              <span class="comp-label">Identical Plaintext Block 1:</span>
+              <span class="mono text-cyan">0123456789ABCDEF</span>
+              <span class="comp-label">Derived Session Key 1:</span>
+              <span class="mono text-amber" id="dyn-comp-k1">...</span>
+              <span class="comp-label">Ciphertext Block 1:</span>
+              <span class="mono text-emerald font-bold" id="dyn-comp-c1">...</span>
+            </div>
+            <div class="comparison-block mt-3">
+              <span class="comp-label">Identical Plaintext Block 2:</span>
+              <span class="mono text-cyan">0123456789ABCDEF</span>
+              <span class="comp-label">Derived Session Key 2:</span>
+              <span class="mono text-rose" id="dyn-comp-k2">... (Different Key!)</span>
+              <span class="comp-label">Ciphertext Block 2:</span>
+              <span class="mono text-emerald font-bold" id="dyn-comp-c2">... (Completely Different!)</span>
+            </div>
+            <div class="alert-box alert-success mt-3" id="dyn-comp-alert">
+              🛡️ <strong>C1 ≠ C2:</strong> Identical blocks produce completely distinct pseudorandom ciphertexts. Frequency analysis and pattern recognition are fully thwarted.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Comparison Metrics Table -->
+      <div class="card mt-4">
+        <div class="card-header">
+          <h3>📊 Quantitative Comparison Matrix</h3>
+        </div>
+        <div class="card-body">
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Security Property</th>
+                  <th>Standard DES</th>
+                  <th>Dynamic DES</th>
+                  <th>Significance for Presentation</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Key Ingestion</strong></td>
+                  <td>Single static 64-bit key across all blocks</td>
+                  <td>Dynamic session key derived per block</td>
+                  <td>Overcomes static key reuse risks</td>
+                </tr>
+                <tr>
+                  <td><strong>Repeated Plaintext Handling</strong></td>
+                  <td class="text-rose font-bold">Identical cipher blocks (ECB leak)</td>
+                  <td class="text-emerald font-bold">Completely different cipher blocks</td>
+                  <td>Prevents ciphertext pattern discovery</td>
+                </tr>
+                <tr>
+                  <td><strong>Avalanche Effect Between Blocks</strong></td>
+                  <td>0% (identical blocks produce 0 differing bits)</td>
+                  <td class="text-emerald font-bold" id="metric-avalanche-pct">~50% differing bits</td>
+                  <td>High diffusion across block sequences</td>
+                </tr>
+                <tr>
+                  <td><strong>Replay Attack Resistance</strong></td>
+                  <td class="text-rose">Vulnerable to block substitution</td>
+                  <td class="text-emerald font-bold">Immune (block counter bound to key)</td>
+                  <td>Blocks cannot be reordered or swapped</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <div class="footer-content">
+      <span>Dynamic DES — Educational Cryptography & Network Security Project</span>
+      <span>Complies with NIST FIPS 46-3 Specification</span>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
